@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Base Mini App</title>
+</head>
+<body>
+
+  <h2>Base Mini App</h2>
+
+  <button id="connectBtn">Connect MetaMask</button>
+  <p id="walletAddress"></p>
+
+<script>
+  const connectBtn = document.getElementById("connectBtn");
+  const walletAddress = document.getElementById("walletAddress");
+
+  connectBtn.onclick = async () => {
+    if (!window.ethereum) {
+      alert("MetaMask install karo!");
+      return;
+    }
+
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+
+    walletAddress.innerText = "Connected: " + accounts[0];
+  };
+</script>
+
+</body>
+</html>
