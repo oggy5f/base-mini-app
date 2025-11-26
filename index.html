@@ -1,78 +1,139 @@
-<script>
-document.addEventListener("DOMContentLoaded", () => {
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Base Mini App (safe)</title>
+  <style>
+    body{font-family:Arial,margin:30px;background:#f7f7f7;color:#111}
+    .card{background:#fff;border-radius:8px;padding:18px;max-width:720px;margin:10px auto;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+    button{padding:8px 14px;border-radius:6px;border:0;cursor:pointer;background:#1e90ff;color:#fff}
+    .muted{color:#666;margin-left:10px}
+    .row{display:flex;gap:12px;align-items:center;margin:12px 0}
+    #walletAddress{word-break:break-all;color:#333}
+    #mintResult{margin-top:8px;color:#0b6}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Base Mini App</h1>
+    <div class="row">
+      <button id="connectBtn">Connect MetaMask</button>
+      <div id="walletAddress">Not connected</div>
+    </div>
 
-    const connectBtn = document.getElementById("connectBtn");
-    const walletAddress = document.getElementById("walletAddress");
-    const checkinBtn = document.getElementById("checkinBtn");
-    const scoreDisplay = document.getElementById("scoreDisplay");
-    const mintBtn = document.getElementById("mintBtn");
-    const mintResult = document.getElementById("mintResult");
+    <hr>
 
-    let score = 0;
+    <h3>Daily Check-in</h3>
+    <div class="row">
+      <button id="checkinBtn">Check-in</button>
+      <div class="muted">Connect wallet to use check-in</div>
+    </div>
+    <div>Your Score: <span id="scoreDisplay">0</span></div>
 
-    // ---- CONNECT WALLET ----
-    async function connectWallet() {
+    <hr>
+
+    <h3>Mint Badge (Demo)</h3>
+    <div class="row">
+      <button id="mintBtn">Mint Badge (Simulate)</button>
+    </div>
+    <div id="mintResult"></div>
+  </div>
+
+  <!-- SCRIPT: safe connect + storage + simulate mint -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const connectBtn = document.getElementById("connectBtn");
+      const walletAddress = document.getElementById("walletAddress");
+      const checkinBtn = document.getElementById("checkinBtn");
+      const scoreDisplay = document.getElementById("scoreDisplay");
+      const mintBtn = document.getElementById("mintBtn");
+      const mintResult = document.getElementById("mintResult");
+
+      let score = 0;
+
+      async function connectWallet() {
         try {
-            if (!window.ethereum) {
-                alert("No wallet found. Install MetaMask or OKX Wallet.");
-                return;
-            }
-
-            const accounts = await window.ethereum.request({
-                method: "eth_requestAccounts"
-            });
-
-            const addr = accounts[0];
-            walletAddress.innerText = addr;
-            connectBtn.innerText = "Connected";
-
-            loadProgress(addr);
-
-        } catch (e) {
-            alert("Connection failed: " + e.message);
-        }
-    }
-
-    // ---- DAILY CHECK-IN ----
-    function dailyCheckIn() {
-        if (walletAddress.innerText === "Not connected") {
-            alert("Connect wallet first!");
+          if (!window.ethereum) {
+            alert("No wallet found. Install MetaMask / OKX Wallet extension.");
             return;
-        }
+          }
+          // request accounts
+          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+          const addr = accounts && accounts[0] ? accounts[0] : "No address";
+          walletAddress.innerText = addr;
+          connectBtn.innerText = "Connected";
+          loadProgress(addr);
 
+          // listen for account change
+          if (window.ethereum && window.ethereum.on) {
+            window.ethereum.on('accountsChanged', (accs) => {
+              // if user switches account, update UI and reload saved score
+              const newAddr = (accs && accs[0]) ? accs[0] : "Not connected";
+              walletAddress.innerText = newAddr;
+              score = 0;
+              scoreDisplay.innerText = score;
+              if (newAddr !== "Not connected") loadProgress(newAddr);
+            });
+          }
+        } catch (e) {
+          console.error("connect error:", e);
+          alert("Connection failed: " + (e.message || e));
+        }
+      }
+
+      function dailyCheckIn() {
+        if (walletAddress.innerText === "Not connected") {
+          alert("Connect wallet first!");
+          return;
+        }
         score++;
         scoreDisplay.innerText = score;
         saveProgress(walletAddress.innerText, score);
-    }
+      }
 
-    // ---- SAVE TO LOCAL STORAGE ----
-    function saveProgress(addr, points) {
-        localStorage.setItem("miniapp_" + addr, points);
-    }
+      function saveProgress(addr, points) {
+        try {
+          localStorage.setItem("miniapp_" + addr, String(points));
+        } catch (e) {
+          console.warn("LocalStorage save failed:", e);
+        }
+      }
 
-    function loadProgress(addr) {
-        const saved = localStorage.getItem("miniapp_" + addr);
-        if (saved) {
-            score = parseInt(saved);
+      function loadProgress(addr) {
+        try {
+          const s = localStorage.getItem("miniapp_" + addr);
+          if (s) {
+            score = parseInt(s, 10) || 0;
             scoreDisplay.innerText = score;
+          }
+        } catch (e) {
+          console.warn("LocalStorage load failed:", e);
         }
-    }
+      }
 
-    // ---- MINT BADGE (SIMULATED) ----
-    function mintBadge() {
+      function mintBadge() {
         if (walletAddress.innerText === "Not connected") {
-            alert("Connect wallet first!");
-            return;
+          alert("Connect wallet first!");
+          return;
         }
-
-        const badgeId = Math.floor(Math.random() * 100000);
+        const badgeId = Math.floor(Math.random() * 1000000);
         mintResult.innerText = "Badge Minted (Simulated): " + badgeId;
         alert("Badge Minted: " + badgeId);
-    }
+      }
 
-    // ---- EVENT LISTENERS ----
-    connectBtn.onclick = connectWallet;
-    checkinBtn.onclick = dailyCheckIn;
-    mintBtn.onclick = mintBadge;
-});
-</script>
+      // wire events
+      connectBtn.onclick = connectWallet;
+      checkinBtn.onclick = dailyCheckIn;
+      mintBtn.onclick = mintBadge;
+
+      // optional: auto-connect if authorized (not all wallets support selectedAddress)
+      if (window.ethereum && window.ethereum.selectedAddress) {
+        walletAddress.innerText = window.ethereum.selectedAddress;
+        connectBtn.innerText = "Connected";
+        loadProgress(window.ethereum.selectedAddress);
+      }
+    });
+  </script>
+</body>
+</html>
