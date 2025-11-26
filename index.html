@@ -1,67 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base Mini App</title>
+
+<style>
+body { font-family: Arial; margin:20px; background:#f5f5f5; }
+.card { background:#fff; padding:20px; margin-bottom:20px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+button { padding:10px 16px; background:#3b82f6; color:white; border:none; border-radius:6px; cursor:pointer; }
+button:disabled { opacity:0.5; cursor:not-allowed; }
+h2 { margin-top:0; }
+</style>
+
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="card">
+    <h2>Base Mini App</h2>
+    <button id="connectBtn">Connect MetaMask</button>
+    <p id="walletAddress">Not connected</p>
+</div>
+
+<!-- CHECK-IN -->
+<div class="card">
+    <h3>Daily Check-in</h3>
+    <button id="checkinBtn" disabled>Check-in</button>
+    <p>Your Score: <span id="score">0</span></p>
+</div>
+
+<!-- MINT BADGE -->
+<div class="card">
+    <h3>Mint Badge (Demo)</h3>
+    <button id="mintBtn" disabled>Mint Badge (Simulated)</button>
+    <p id="mintResult"></p>
+</div>
+
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const connectBtn = document.getElementById("connectBtn");
-  const walletAddress = document.getElementById("walletAddress");
-  const checkinBtn = document.getElementById("checkinBtn");
-  const scoreText = document.getElementById("scoreText");
-  const mintResult = document.getElementById("mintResult");
-  let score = 0;
+const connectBtn = document.getElementById('connectBtn');
+const walletAddress = document.getElementById('walletAddress');
+const checkinBtn = document.getElementById('checkinBtn');
+const scoreEl = document.getElementById('score');
+const mintBtn = document.getElementById('mintBtn');
+const mintResult = document.getElementById('mintResult');
 
-  async function connectAndSetup() {
+let userAddress = "";
+let score = 0;
+
+// CHECK EXTENSION
+function hasEthereum() {
+    return typeof window.ethereum !== "undefined";
+}
+
+async function connectWallet() {
     try {
-      if (!window.ethereum) {
-        alert("MetaMask not detected!");
-        return;
-      }
+        if (!hasEthereum()) {
+            alert("MetaMask / OKX Wallet not detected");
+            return;
+        }
 
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
+        const accounts = await window.ethereum.request({
+            method: "eth_requestAccounts"
+        });
 
-      const addr = accounts[0];
-      walletAddress.innerText = addr;
-      connectBtn.innerText = "Connected";
+        userAddress = accounts[0];
+        walletAddress.innerText = userAddress;
+        connectBtn.innerText = "Connected";
 
-      setupForAddress(addr);
-    } catch (e) {
-      alert("Connection failed: " + e.message);
+        checkinBtn.disabled = false;
+        mintBtn.disabled = false;
+
+        loadScore();
+    } catch (err) {
+        console.error(err);
     }
-  }
+}
 
-  function setupForAddress(addr) {
-    scoreText.innerText = getScore(addr);
+// DAILY CHECK-IN
+function loadScore() {
+    const saved = localStorage.getItem("score_" + userAddress);
+    if (saved) score = parseInt(saved);
+    scoreEl.innerText = score;
+}
 
-    checkinBtn.onclick = () => {
-      const today = new Date().toLocaleDateString();
-      const last = localStorage.getItem("lastCheckin_" + addr);
+checkinBtn.onclick = () => {
+    score++;
+    scoreEl.innerText = score;
+    localStorage.setItem("score_" + userAddress, score);
+};
 
-      if (last === today) {
-        alert("Already checked in!");
-        return;
-      }
+// SIMULATED BADGE MINT
+mintBtn.onclick = () => {
+    const badgeId = Math.floor(Math.random() * 10000);
+    mintResult.innerText = "Badge Minted (Simulated): " + badgeId;
+    alert("Badge Minted (Simulated): " + badgeId);
+};
 
-      localStorage.setItem("lastCheckin_" + addr, today);
-      score = getScore(addr) + 1;
-      saveScore(addr, score);
-      scoreText.innerText = score;
-      alert("Check-in successful!");
-    };
+// ACCOUNT CHANGE
+if (hasEthereum()) {
+    window.ethereum.on("accountsChanged", () => {
+        connectWallet();
+    });
+}
 
-    document.getElementById("mintBtn").onclick = () => {
-      const badgeId = Math.floor(Math.random() * 10000);
-      mintResult.innerText = "Badge Minted (Simulated): " + badgeId;
-      alert("Badge Minted (Simulated): " + badgeId);
-    };
-  }
+connectBtn.onclick = connectWallet;
 
-  function getScore(addr) {
-    return Number(localStorage.getItem("score_" + addr) || 0);
-  }
-
-  function saveScore(addr, value) {
-    localStorage.setItem("score_" + addr, value);
-  }
-
-  connectBtn.onclick = connectAndSetup;
-});
 </script>
+</body>
+</html>
