@@ -1,175 +1,67 @@
-Macn Roan, [26-11-2025 11:44]
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Base Mini App</title>
-  <style>
-    body{font-family:system-ui,Arial;margin:18px;background:#fafafa;color:#111}
-    .card{background:#fff;padding:16px;border-radius:10px;max-width:760px;margin:12px auto;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
-    button{padding:8px 12px;border:0;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer}
-    .muted{color:#6b7280;font-size:14px}
-    h2,h3{margin:6px 0}
-    .row{display:flex;gap:8px;align-items:center}
-  </style>
-</head>
-<body>
-
-  <div class="card">
-    <h2>Base Mini App</h2>
-
-    <div id="walletArea" class="row">
-      <button id="connectBtn">Connect MetaMask</button>
-    </div>
-    <p id="walletAddress" class="muted">Not connected</p>
-  </div>
-
-  <div class="card">
-    <h3>Daily Check-in</h3>
-    <div class="row">
-      <button id="checkBtn" disabled>Check-in</button>
-      <div class="muted" id="checkStatus">Connect wallet to use check-in</div>
-    </div>
-    <div style="height:10px"></div>
-    <h3>Your Score</h3>
-    <div class="muted">Points: <strong id="score">0</strong></div>
-  </div>
-
-  <div class="card">
-    <h3>Mint Badge (Demo)</h3>
-    <div class="muted">This is a simulated mint — real on-chain minting needs Thirdweb setup.</div>
-    <div style="height:8px"></div>
-    <button id="mintBtn" disabled>Mint Badge (Simulate)</button>
-    <div id="mintResult" class="muted" style="margin-top:8px"></div>
-  </div>
-
 <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const connectBtn = document.getElementById("connectBtn");
+  const walletAddress = document.getElementById("walletAddress");
+  const checkinBtn = document.getElementById("checkinBtn");
+  const scoreText = document.getElementById("scoreText");
+  const mintResult = document.getElementById("mintResult");
+  let score = 0;
 
-/* -------- LOCAL STORAGE FUNCTIONS -------- */
-
-function storageKey(address){ 
-  return "baseApp_" + address.toLowerCase(); 
-}
-
-function loadProgress(address){
-  const raw = localStorage.getItem(storageKey(address));
-  return raw ? JSON.parse(raw) : { score:0, lastCheck:"", badges:[] };
-}
-
-function saveProgress(address, data){
-  localStorage.setItem(storageKey(address), JSON.stringify(data));
-}
-
-/* -------- DOM ELEMENTS -------- */
-
-const connectBtn = document.getElementById("connectBtn");
-const walletAddress = document.getElementById("walletAddress");
-const checkBtn = document.getElementById("checkBtn");
-const checkStatus = document.getElementById("checkStatus");
-const scoreEl = document.getElementById("score");
-const mintBtn = document.getElementById("mintBtn");
-const mintResult = document.getElementById("mintResult");
-
-/* -------- SETUP FOR CONNECTED WALLET -------- */
-
-function setupForAddress(addr){
-  const progress = loadProgress(addr);
-  const today = new Date().toISOString().slice(0,10);
-
-  // show score
-  scoreEl.innerText = progress.score;
-
-  // check-in status
-  if(progress.lastCheck === today){
-    checkStatus.innerText = "✔ Already checked-in today";
-    checkBtn.disabled = true;
-  } else {
-    checkStatus.innerText = "Not checked-in today";
-    checkBtn.disabled = false;
-  }
-
-  // mint enabled only if score >= 50
-  mintBtn.disabled = progress.score < 50;
-  mintResult.innerText = progress.badges.length 
-    ? "Badges: " + progress.badges.join(", ") 
-    : "";
-}
-
-/* -------- CONNECT WALLET -------- */
-
-async function connectAndSetup(){
-  if(!window.ethereum){
-    alert("MetaMask install karo.");
-    return;
-  }
-
-  try{
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    const addr = accounts[0];
-
-    walletAddress.innerText = "Connected: " + addr;
-
-    setupForAddress(addr);
-
-    /* ---- CHECK-IN BUTTON ---- */
-    checkBtn.onclick = () => {
-      const p = loadProgress(addr);
-      const today = new Date().toISOString().slice(0,10);
-
-      if(p.lastCheck === today){
-        alert("Already checked-in today!");
+  async function connectAndSetup() {
+    try {
+      if (!window.ethereum) {
+        alert("MetaMask not detected!");
         return;
       }
 
-      p.score += 10;
-      p.lastCheck = today;
-      saveProgress(addr, p);
-
-      setupForAddress(addr);
-      alert("Checked-in! +10 points");
-    };
-
-    /* ---- MINT BUTTON ---- */
-    mintBtn.onclick = () => {
-      const p = loadProgress(addr);
-
-      if(p.score < 50){
-        mintResult.innerText = "Need 50 points to mint a badge.";
-        return;
-      }
-
-Macn Roan, [26-11-2025 11:44]
-const badgeId = "badge-" + Date.now();
-      p.badges.push(badgeId);
-
-      saveProgress(addr, p);
-      setupForAddress(addr);
-
-      mintResult.innerText = "Badge Minted (Simulated): " + badgeId;
-      alert("Badge Minted: " + badgeId);
-    };
-
-    /* ---- ACCOUNT CHANGE LISTENER ---- */
-    if(window.ethereum && window.ethereum.on){
-      window.ethereum.on('accountsChanged', () => {
-        connectAndSetup();
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
       });
+
+      const addr = accounts[0];
+      walletAddress.innerText = addr;
+      connectBtn.innerText = "Connected";
+
+      setupForAddress(addr);
+    } catch (e) {
+      alert("Connection failed: " + e.message);
     }
-
-  }catch(e){
-    alert("Connection failed: " + e.message);
   }
-}
 
-/* Auto connect if MetaMask already authorized */
-if(window.ethereum && window.ethereum.selectedAddress){
-  connectAndSetup();
-}
+  function setupForAddress(addr) {
+    scoreText.innerText = getScore(addr);
 
-connectBtn.onclick = connectAndSetup;
+    checkinBtn.onclick = () => {
+      const today = new Date().toLocaleDateString();
+      const last = localStorage.getItem("lastCheckin_" + addr);
 
+      if (last === today) {
+        alert("Already checked in!");
+        return;
+      }
+
+      localStorage.setItem("lastCheckin_" + addr, today);
+      score = getScore(addr) + 1;
+      saveScore(addr, score);
+      scoreText.innerText = score;
+      alert("Check-in successful!");
+    };
+
+    document.getElementById("mintBtn").onclick = () => {
+      const badgeId = Math.floor(Math.random() * 10000);
+      mintResult.innerText = "Badge Minted (Simulated): " + badgeId;
+      alert("Badge Minted (Simulated): " + badgeId);
+    };
+  }
+
+  function getScore(addr) {
+    return Number(localStorage.getItem("score_" + addr) || 0);
+  }
+
+  function saveScore(addr, value) {
+    localStorage.setItem("score_" + addr, value);
+  }
+
+  connectBtn.onclick = connectAndSetup;
+});
 </script>
-
-</body>
-</html>
